@@ -18,4 +18,7 @@ Built over 30 days in public as a deep dive into production agent engineering.
 
 ## Day log
 
-- Day 1: Foundations, project skeleton, first Claude call.
+- **Day 1 — Foundations.** Project skeleton up. FastAPI backend with a thin
+  Claude wrapper. Next.js frontend with one query endpoint working end-to-end.
+  Internalized the workflow-vs-agent distinction. Tomorrow: implement the ReAct
+  loop from scratch.

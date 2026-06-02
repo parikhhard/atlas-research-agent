@@ -1,0 +1,9 @@
+[project]
+name = "atlas-research-agent"
+version = "0.1.0"
+description = "A multi-agent research system. Built in 30 days."
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.uv]
+dev-dependencies = []

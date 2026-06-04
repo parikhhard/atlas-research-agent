@@ -5,7 +5,7 @@ Atlas API — FastAPI entry point.
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from agent.core import ask_claude
+from agent.react import run_agent
 
 app = FastAPI()
 
@@ -25,5 +25,9 @@ def root():
 
 @app.post("/query")
 def query(request: dict):
-    answer = ask_claude(request["query"])
-    return {"answer": answer}
+    result = run_agent(request["query"], verbose=False)
+    return {
+        "answer": result["answer"],
+        "trace": result["trace"],
+        "iterations": result["iterations"],
+    }

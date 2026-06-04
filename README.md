@@ -22,3 +22,8 @@ Built over 30 days in public as a deep dive into production agent engineering.
   Claude wrapper. Next.js frontend with one query endpoint working end-to-end.
   Internalized the workflow-vs-agent distinction. Tomorrow: implement the ReAct
   loop from scratch.
+
+- **Day 2 — The ReAct Loop.** Built a hand-rolled ReAct loop in pure Python.
+  Added web search via Tavily. The agent now decides when to search, when to
+  answer directly, and when it has enough information to stop. Frontend shows
+  the full reasoning trace. No framework yet, just the bare pattern.

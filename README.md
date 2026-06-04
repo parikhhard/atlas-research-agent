@@ -27,3 +27,9 @@ Built over 30 days in public as a deep dive into production agent engineering.
   Added web search via Tavily. The agent now decides when to search, when to
   answer directly, and when it has enough information to stop. Frontend shows
   the full reasoning trace. No framework yet, just the bare pattern.
+
+- **Day 3 — Native tool use & multi-tool agents.** Restructured tools into a
+  registry pattern. Added calculator, URL fetch, and current time tools.
+  Atlas now handles multi-tool reasoning chains (search both populations, then
+  calculate the ratio). Spent real time tuning tool descriptions to shape
+  agent behavior. Tool design is harder than prompting, confirmed.

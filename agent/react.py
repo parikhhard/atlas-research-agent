@@ -10,6 +10,7 @@ import warnings
 import httpx
 from anthropic import Anthropic
 from dotenv import load_dotenv
+from prompts import get_prompt
 
 from tools import TOOL_DEFINITIONS, execute_tool
 
@@ -38,15 +39,13 @@ Be efficient. Tool calls cost time and money.
 """
 
 
-def run_agent(user_query: str, verbose: bool = True) -> dict:
+def run_agent(user_query: str, mode: str = "fast", verbose: bool = True) -> dict:
     """
     Run the ReAct loop until the agent produces a final answer or hits max iterations.
     
-    Returns a dict with:
-        - answer: final text response
-        - trace: list of every step the agent took
-        - iterations: how many loops it took
+    mode: 'fast' or 'thorough'. Controls the system prompt.
     """
+    system_prompt = get_prompt(mode)
     messages = [{"role": "user", "content": user_query}]
     trace = []
     
@@ -57,7 +56,7 @@ def run_agent(user_query: str, verbose: bool = True) -> dict:
         response = client.messages.create(
             model="claude-sonnet-4-5",
             max_tokens=4096,
-            system=SYSTEM_PROMPT,
+            system=system_prompt,
             tools=TOOL_DEFINITIONS,
             messages=messages,
         )
@@ -76,6 +75,7 @@ def run_agent(user_query: str, verbose: bool = True) -> dict:
                 "answer": final_text,
                 "trace": trace,
                 "iterations": iteration + 1,
+                "mode": mode,
             }
         
         if response.stop_reason == "tool_use":

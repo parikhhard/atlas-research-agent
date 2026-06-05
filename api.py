@@ -1,7 +1,8 @@
 """
-Atlas API — FastAPI entry point.
+Atlas API.
 """
 
+import asyncio
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -25,9 +26,31 @@ def root():
 
 @app.post("/query")
 def query(request: dict):
-    result = run_agent(request["query"], verbose=False)
+    mode = request.get("mode", "fast")
+    result = run_agent(request["query"], mode=mode, verbose=False)
     return {
         "answer": result["answer"],
         "trace": result["trace"],
         "iterations": result["iterations"],
+        "mode": result["mode"],
+    }
+
+
+@app.post("/compare")
+async def compare(request: dict):
+    """
+    Run the same query through both modes and return side by side results.
+    Useful for seeing how the system prompt alone changes agent behavior.
+    """
+    user_query = request["query"]
+    
+    # Run both modes in parallel using asyncio.to_thread since run_agent is sync
+    fast_task = asyncio.to_thread(run_agent, user_query, "fast", False)
+    thorough_task = asyncio.to_thread(run_agent, user_query, "thorough", False)
+    
+    fast_result, thorough_result = await asyncio.gather(fast_task, thorough_task)
+    
+    return {
+        "fast": fast_result,
+        "thorough": thorough_result,
     }

@@ -33,3 +33,10 @@ Built over 30 days in public as a deep dive into production agent engineering.
   Atlas now handles multi-tool reasoning chains (search both populations, then
   calculate the ratio). Spent real time tuning tool descriptions to shape
   agent behavior. Tool design is harder than prompting, confirmed.
+
+- **Day 4 — System prompts as architecture.** Refactored the system prompt
+  into structured, mode aware artifacts. Two modes: fast (low latency, direct
+  answers) and thorough (multi source, structured output with citations and
+  confidence levels). Added an A/B compare endpoint that runs both modes in
+  parallel for the same query. Same model, same tools, different prompts,
+  visibly different behavior.

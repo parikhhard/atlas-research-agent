@@ -1,117 +1,109 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+function newThreadId() {
+  return crypto.randomUUID();
+}
 
 export default function Home() {
   const [query, setQuery] = useState("");
   const [mode, setMode] = useState("fast");
-  const [singleResult, setSingleResult] = useState(null);
-  const [compareResult, setCompareResult] = useState(null);
+  const [threadId, setThreadId] = useState(null);
+  const [conversation, setConversation] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  async function runSingle() {
+  useEffect(() => {
+  setThreadId(newThreadId());
+}, []);
+
+  async function handleSubmit() {
     if (!query.trim()) return;
+    const userTurn = { role: "user", content: query };
+    setConversation((prev) => [...prev, userTurn]);
+    setQuery("");
     setLoading(true);
-    setSingleResult(null);
-    setCompareResult(null);
+    
     try {
       const res = await fetch("http://localhost:8000/query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, mode }),
+        body: JSON.stringify({ query, mode, engine: "graph", thread_id: threadId }),
       });
       const data = await res.json();
-      setSingleResult(data);
+      const agentTurn = {
+        role: "agent",
+        content: data.answer,
+        trace: data.trace,
+        iterations: data.iterations,
+      };
+      setConversation((prev) => [...prev, agentTurn]);
     } catch {
-      setSingleResult({ answer: "Error. Is the API running?", trace: [], iterations: 0 });
+      setConversation((prev) => [...prev, { role: "agent", content: "Error" }]);
     } finally {
       setLoading(false);
     }
   }
 
-  async function runCompare() {
-    if (!query.trim()) return;
-    setLoading(true);
-    setSingleResult(null);
-    setCompareResult(null);
-    try {
-      const res = await fetch("http://localhost:8000/compare", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
-      });
-      const data = await res.json();
-      setCompareResult(data);
-    } catch {
-      setCompareResult({ fast: { answer: "Error" }, thorough: { answer: "Error" } });
-    } finally {
-      setLoading(false);
-    }
+  function startNewThread() {
+    setThreadId(newThreadId());
+    setConversation([]);
   }
 
   return (
     <main>
       <h1>Atlas</h1>
-      <p>A multi-agent research system. Day 4 — system prompts as architecture.</p>
+      <p>A multi-agent research system. Day 6 — persistent state.</p>
 
       <div>
-        <h2>Ask Atlas</h2>
-        <textarea
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="What would you like to research?"
-          rows={4}
-        />
-        <br />
         <label>
           Mode:{" "}
           <select value={mode} onChange={(e) => setMode(e.target.value)}>
             <option value="fast">Fast</option>
             <option value="thorough">Thorough</option>
           </select>
-        </label>
-        <br />
-        <button onClick={runSingle} disabled={loading}>
-          {loading ? "Thinking..." : "Ask"}
-        </button>{" "}
-        <button onClick={runCompare} disabled={loading}>
-          {loading ? "Thinking..." : "Compare Both Modes"}
-        </button>
+        </label>{" "}
+        <button onClick={startNewThread}>New Conversation</button>
       </div>
 
-      {singleResult && (
-        <div>
-          <h2>Result ({singleResult.mode}, {singleResult.iterations} iterations)</h2>
-          <h3>Answer</h3>
-          <p>{singleResult.answer}</p>
-          <h3>Trace</h3>
-          {singleResult.trace.map((step, i) => (
-            <div key={i}>
-              <strong>{step.step.toUpperCase()}:</strong>{" "}
-              {step.tool ? (
-                <span>{step.tool}({JSON.stringify(step.input)})</span>
-              ) : (
-                <span>{step.content}</span>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
+      <div>
+        <small>Thread: {threadId}</small>
+      </div>
 
-      {compareResult && (
-        <div>
-          <h2>Side by Side Comparison</h2>
-          <div>
-            <h3>Fast Mode ({compareResult.fast.iterations} iterations)</h3>
-            <p>{compareResult.fast.answer}</p>
+      <hr />
+
+      <div>
+        <h2>Conversation</h2>
+        {conversation.map((turn, i) => (
+          <div key={i}>
+            <strong>{turn.role.toUpperCase()}:</strong> {turn.content}
+            {turn.trace && (
+              <details>
+                <summary>Trace ({turn.iterations} steps)</summary>
+                {turn.trace.map((step, j) => (
+                  <div key={j}>
+                    <strong>{step.step}:</strong>{" "}
+                    {step.tool ? `${step.tool}(${JSON.stringify(step.input)})` : step.content}
+                  </div>
+                ))}
+              </details>
+            )}
           </div>
-          <hr />
-          <div>
-            <h3>Thorough Mode ({compareResult.thorough.iterations} iterations)</h3>
-            <p>{compareResult.thorough.answer}</p>
-          </div>
-        </div>
-      )}
+        ))}
+      </div>
+
+      <div>
+        <textarea
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Ask Atlas something..."
+          rows={3}
+        />
+        <br />
+        <button onClick={handleSubmit} disabled={loading}>
+          {loading ? "Thinking..." : "Send"}
+        </button>
+      </div>
     </main>
   );
 }

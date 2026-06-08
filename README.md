@@ -40,3 +40,17 @@ Built over 30 days in public as a deep dive into production agent engineering.
   confidence levels). Added an A/B compare endpoint that runs both modes in
   parallel for the same query. Same model, same tools, different prompts,
   visibly different behavior.
+
+- **Day 5 — LangGraph fundamentals.** Rebuilt the agent as a state graph
+  using LangGraph. Same behavior, different mechanics. The hand-rolled
+  ReAct loop stays in the repo as a reference implementation for what the
+  framework abstracts. Side by side comparison endpoint shows the two
+  engines produce equivalent behavior on the same queries. The graph
+  becomes useful in week 1 when persistence (Day 6) and multi-agent
+  branching (Week 2) enter the picture.
+
+- **Day 6 — Persistent agent state.** Attached a Postgres checkpointer to
+  the graph. Every state transition now persists. Conversations survive
+  server restarts. Threads give us multi-session continuity. The graph
+  itself didn't change. One wrapper added at compile time, and the agent
+  gained memory. This is the moment LangGraph's abstraction paid off.

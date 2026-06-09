@@ -1,11 +1,13 @@
 """
-Web search tool. Wraps Tavily.
+Web search tool. Wraps Tavily with retry logic.
 """
 
 import os
 import urllib3
 from tavily import TavilyClient
 from dotenv import load_dotenv
+
+from tools.reliability import with_retry
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 load_dotenv()
@@ -28,7 +30,7 @@ SEARCH_DEFINITION = {
         "properties": {
             "query": {
                 "type": "string",
-                "description": "The search query. Be specific and concise. Include important keywords like dates or locations."
+                "description": "The search query. Be specific and concise."
             }
         },
         "required": ["query"]
@@ -36,6 +38,7 @@ SEARCH_DEFINITION = {
 }
 
 
+@with_retry(max_attempts=3, base_delay=1.0)
 def search(query: str, max_results: int = 3) -> str:
     response = tavily.search(query=query, max_results=max_results)
     results = []

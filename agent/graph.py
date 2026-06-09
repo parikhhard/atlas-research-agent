@@ -152,7 +152,7 @@ if __name__ == "__main__":
     print(f"\nThread: {thread}\n")
     
     result1 = run_agent_graph(
-        "What is the current population of Tokyo?",
+        "What is the weather in Austin today?",
         mode="fast",
         thread_id=thread,
     )
@@ -160,7 +160,7 @@ if __name__ == "__main__":
     
     # Second turn: SAME thread. The agent should remember the first turn.
     result2 = run_agent_graph(
-        "What about New York City? Compare it to Tokyo.",
+        "What is the weather in Austin tomorrow?",
         mode="fast",
         thread_id=thread,
     )

@@ -20,6 +20,16 @@ from langchain_core.messages import HumanMessage, AIMessage, ToolMessage
 
 from tools import TOOL_DEFINITIONS, execute_tool
 from prompts import get_prompt
+from langchain_core.messages import RemoveMessage, SystemMessage
+from agent.memory import estimate_tokens, summarize_messages
+
+
+# Compaction triggers when the context exceeds this. Tune based on observed cost.
+COMPACTION_THRESHOLD_TOKENS = 8000
+
+# How many recent messages to always keep verbatim, even during compaction.
+RECENT_MESSAGES_TO_KEEP = 6
+
 
 warnings.filterwarnings("ignore")
 load_dotenv()
@@ -70,14 +80,66 @@ def should_continue(state):
     return "end"
 
 
-# Build the graph structure (same as day 5)
+def compactor_node(state):
+    """
+    Compact the conversation if it exceeds the token threshold.
+    
+    Strategy: keep the most recent messages verbatim, summarize older ones
+    into a single summary message that replaces them.
+    """
+    messages = state["messages"]
+    token_count = estimate_tokens(messages)
+    
+    # Below threshold: nothing to do
+    if token_count < COMPACTION_THRESHOLD_TOKENS:
+        return {}
+    
+    # Above threshold but not enough messages to meaningfully compact
+    if len(messages) <= RECENT_MESSAGES_TO_KEEP + 2:
+        return {}
+    
+    # Split: older messages to summarize, recent messages to keep verbatim
+    to_summarize = messages[:-RECENT_MESSAGES_TO_KEEP]
+    
+    # Run the summarizer
+    summary = summarize_messages(anthropic_client, to_summarize)
+    
+    # Build the state update:
+    #   1. Remove every message we just summarized
+    #   2. Add a single SystemMessage with the summary
+    removals = [RemoveMessage(id=msg.id) for msg in to_summarize if hasattr(msg, "id") and msg.id]
+    summary_msg = SystemMessage(
+        content=f"[Earlier conversation summary] {summary}"
+    )
+    
+    new_trace = state["trace"] + [{
+        "step": "compaction",
+        "content": f"Compacted {len(to_summarize)} messages into a summary. Token count went from ~{token_count} to ~{estimate_tokens([summary_msg] + messages[-RECENT_MESSAGES_TO_KEEP:])}."
+    }]
+    
+    return {
+        "messages": removals + [summary_msg],
+        "trace": new_trace,
+    }
+
 workflow = StateGraph(AgentState)
+
+workflow.add_node("compactor", compactor_node)
 workflow.add_node("agent", agent_node)
 workflow.add_node("tools", tools_node)
-workflow.set_entry_point("agent")
-workflow.add_conditional_edges("agent", should_continue, {"tools": "tools", "end": END})
-workflow.add_edge("tools", "agent")
 
+# Compactor runs first, before any agent work
+workflow.set_entry_point("compactor")
+workflow.add_edge("compactor", "agent")
+
+# Same conditional edge as before
+workflow.add_conditional_edges("agent", should_continue, {
+    "tools": "tools",
+    "end": END,
+})
+
+# Tools go back to agent (not to compactor) so we don't summarize mid-loop
+workflow.add_edge("tools", "agent")
 
 # ---------- The new part: persistence ----------
 

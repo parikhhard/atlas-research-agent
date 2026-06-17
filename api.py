@@ -78,3 +78,22 @@ def history(thread_id: str):
         "thread_id": thread_id,
         "history": get_history(thread_id),
     }
+
+
+from agent.graph import graph
+
+@app.get("/state/{thread_id}")
+def get_state(thread_id: str):
+    """Inspect the current state of a thread, including how many messages it has."""
+    config = {"configurable": {"thread_id": thread_id}}
+    snapshot = graph.get_state(config)
+    
+    messages = snapshot.values.get("messages", [])
+    return {
+        "thread_id": thread_id,
+        "message_count": len(messages),
+        "message_types": [type(m).__name__ for m in messages],
+        "estimated_tokens": sum(
+            len(str(m.content)) // 4 for m in messages
+        ),
+    }

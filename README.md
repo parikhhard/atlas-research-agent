@@ -70,3 +70,10 @@ Built over 30 days in public as a deep dive into production agent engineering.
   cost as yesterday, dramatically lower wall-clock latency on multi-part
   queries. This is the moment multi-agent finally wins on latency, not
   just quality.
+
+- **Day 10 — Short-term memory.** Added a compaction layer that summarizes
+  older messages when the conversation crosses a token threshold. The
+  agent now holds 30+ turn conversations without context explosion,
+  without exploding cost, and without losing the thread. Compaction
+  runs as a graph node before the agent, using RemoveMessage and a
+  SystemMessage summary to swap stale history for a compact representation.

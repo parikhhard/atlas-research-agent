@@ -54,3 +54,12 @@ Built over 30 days in public as a deep dive into production agent engineering.
   server restarts. Threads give us multi-session continuity. The graph
   itself didn't change. One wrapper added at compile time, and the agent
   gained memory. This is the moment LangGraph's abstraction paid off.
+
+
+- **Day 8 — Orchestrator-worker pattern.** Added a third engine alongside
+  the hand-rolled ReAct loop and single-agent LangGraph: a multi-agent
+  flow with a planner that decomposes the query, workers that handle each
+  sub-task with their own tool access, and a synthesizer that combines
+  results. Workers run sequentially today, parallel tomorrow. Side by
+  side comparison shows where multi-agent earns its cost and where it
+  doesn't.

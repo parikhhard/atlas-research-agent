@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from agent.react import run_agent
 from agent.graph import run_agent_graph, get_history
+from agent.multi_agent import run_multi_agent
 
 app = FastAPI()
 
@@ -34,13 +35,18 @@ def query(request: dict):
     engine = request.get("engine", "graph")
     thread_id = request.get("thread_id", "default")
     
-    if engine == "graph":
-        result = run_agent_graph(request["query"], mode=mode, thread_id=thread_id)
-    else:
-        # Hand-rolled ReAct has no persistence
-        result = run_agent(request["query"], mode=mode, verbose=False)
+    if engine == "multi":
+        result = run_multi_agent(request["query"])
         result["thread_id"] = thread_id
+        result["mode"] = mode
+        return result
     
+    if engine == "graph":
+        return run_agent_graph(request["query"], mode=mode, thread_id=thread_id)
+    
+    # Hand-rolled ReAct
+    result = run_agent(request["query"], mode=mode, verbose=False)
+    result["thread_id"] = thread_id
     return result
 
 

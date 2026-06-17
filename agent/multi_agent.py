@@ -12,7 +12,8 @@ single-agent versions in agent/react.py and agent/graph.py.
 import json
 import os
 import warnings
-from typing import TypedDict
+from typing import TypedDict, Annotated
+from langgraph.types import Send
 
 import httpx
 from anthropic import Anthropic
@@ -20,6 +21,7 @@ from dotenv import load_dotenv
 from langgraph.graph import StateGraph, END
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, ToolMessage
+from operator import add
 
 from tools import TOOL_DEFINITIONS, execute_tool
 
@@ -90,9 +92,9 @@ Keep the final answer concise.
 class MultiAgentState(TypedDict):
     query: str
     sub_tasks: list
-    completed_tasks: list
+    completed_tasks: Annotated[list, add]  # parallel workers append here
     final_answer: str
-    trace: list
+    trace: Annotated[list, add]  # parallel workers add trace events here
 
 
 def planner_node(state):
@@ -168,24 +170,21 @@ def run_worker(task: str) -> str:
 
 
 def worker_node(state):
-    """Process the next uncompleted sub-task."""
-    completed = state["completed_tasks"]
-    next_index = len(completed)
+    """
+    Process a single sub-task. The Send API passes the specific task to this node.
     
-    if next_index >= len(state["sub_tasks"]):
-        return {}  # Should not happen, but defensive
-    
-    current_task = state["sub_tasks"][next_index]
+    Notice: this node now receives a task directly via state["task"], not by
+    looking at completed_tasks vs sub_tasks. Each parallel invocation is
+    independent and stateless.
+    """
+    current_task = state["task"]
     answer = run_worker(current_task)
     
-    new_completed = completed + [{"task": current_task, "answer": answer}]
-    new_trace = state["trace"] + [{
-        "step": "worker",
-        "task": current_task,
-        "answer": answer
-    }]
-    
-    return {"completed_tasks": new_completed, "trace": new_trace}
+    return {
+        "completed_tasks": [{"task": current_task, "answer": answer}],
+        "trace": [{"step": "worker", "task": current_task, "answer": answer}],
+    }
+
 
 def synthesizer_node(state):
     """Combine all worker results into a final coherent answer."""
@@ -212,12 +211,18 @@ def synthesizer_node(state):
     
     return {"final_answer": final, "trace": new_trace}
 
-def should_continue_workers(state):
-    """Decide whether to run another worker or move to synthesis."""
-    if len(state["completed_tasks"]) >= len(state["sub_tasks"]):
-        return "synthesize"
-    return "work"
 
+def dispatch_workers(state):
+    """
+    Dispatch one parallel worker invocation per sub-task.
+    
+    Each Send creates a separate worker invocation with its own slice of state.
+    LangGraph runs them all in parallel.
+    """
+    return [
+        Send("worker", {"task": task})
+        for task in state["sub_tasks"]
+    ]
 
 workflow = StateGraph(MultiAgentState)
 
@@ -226,18 +231,22 @@ workflow.add_node("worker", worker_node)
 workflow.add_node("synthesizer", synthesizer_node)
 
 workflow.set_entry_point("planner")
-workflow.add_edge("planner", "worker")
-workflow.add_conditional_edges("worker", should_continue_workers, {
-    "work": "worker",
-    "synthesize": "synthesizer",
-})
+
+# Dispatch parallel workers after planning
+workflow.add_conditional_edges("planner", dispatch_workers, ["worker"])
+
+# All workers converge on the synthesizer
+workflow.add_edge("worker", "synthesizer")
 workflow.add_edge("synthesizer", END)
 
 multi_graph = workflow.compile()
 
 
+import time
+
+
 def run_multi_agent(query: str) -> dict:
-    """Public entry point. Runs the planner-worker-synthesizer flow."""
+    """Public entry point. Runs planner -> parallel workers -> synthesizer."""
     initial_state = {
         "query": query,
         "sub_tasks": [],
@@ -246,13 +255,16 @@ def run_multi_agent(query: str) -> dict:
         "trace": [],
     }
     
+    start = time.time()
     final_state = multi_graph.invoke(initial_state)
+    elapsed = time.time() - start
     
     return {
         "answer": final_state["final_answer"],
         "trace": final_state["trace"],
         "iterations": len(final_state["completed_tasks"]),
         "sub_tasks": final_state["sub_tasks"],
+        "elapsed_seconds": round(elapsed, 2),
     }
 
 

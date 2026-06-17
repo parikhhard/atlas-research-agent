@@ -63,3 +63,10 @@ Built over 30 days in public as a deep dive into production agent engineering.
   results. Workers run sequentially today, parallel tomorrow. Side by
   side comparison shows where multi-agent earns its cost and where it
   doesn't.
+
+  - **Day 9 — Parallel sub-agent fan-out.** Replaced sequential worker
+  iteration with LangGraph's Send API for true parallel execution. State
+  reducers (operator.add) handle parallel writes to shared fields. Same
+  cost as yesterday, dramatically lower wall-clock latency on multi-part
+  queries. This is the moment multi-agent finally wins on latency, not
+  just quality.
